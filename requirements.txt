@@ -1,9 +1,6 @@
-torch
+torch>=2.6
 torchvision
 numpy
-scipy
-scikit-learn
-joblib
 Pillow
 opencv-python
 ultralytics

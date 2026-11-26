@@ -1,39 +1,50 @@
 # GrapePBC
 
-Source code accompanying **GrapePBC: Adaptive-Resolution Counting of Grape Berries per Bunch in Field Images**.
+Implementation of **GrapePBC: Adaptive-Resolution Counting of Grape Berries per Bunch in Field Images**.
 
-GrapePBC predicts berry locations at low resolution, selects regions for high-resolution processing, fuses their count estimates, and assigns the retained berry centers to individual bunches. Fragmented bunch detections are merged while preserving the whole-image count.
+GrapePBC combines low-resolution point prediction, adaptive high-resolution processing, count-bin fusion, unique berry assignment, and bunch instance merging. It produces the whole-image count, per-bunch counts, berry center coordinates, and bunch locations.
 
-## Source archive
+## Files
 
-Download and extract `grapepbc-source.zip`. It contains the Python model and routing implementation, inference server, evaluation scripts, Android application source, and frozen calibration and merging settings.
+Download `grapepbc-source.zip` and extract its `grapepbc` directory. The package contains the `grapepbc` Python module, inference configuration, an evaluation script, the Flask service, and Android source code. Model weights are provided in `grapepbc-weights.zip`. Extract its `checkpoints` directory into the project root.
 
-| Directory | Contents |
-| --- | --- |
-| `src/geopriv` | Point and density models, data processing, routing, assignment, and metrics |
-| `scripts` | Model training, calibration, and imported runtime dependencies |
-| `server` | Image inference and the mobile-facing web service |
-| `research/scripts` | Per-bunch evaluation and ablation evaluation |
-| `configs` | Count calibration, count-bin fusion settings, and the final merging classifier |
-| `mobile/android` | Android application and build files |
-| `mobile/connection` | Computer pairing implementation |
+```text
+grapepbc/
+  grapepbc/       Python implementation
+  configs/        Count calibration, fusion settings, and merging classifier
+  checkpoints/   Trained model weights
+  server/         Flask service and web interface
+  mobile/         Android client and pairing service
+  evaluation.py   Bunch matching and counting metrics
+```
 
-Internal module names are preserved for training and inference dependency compatibility. Checkpoint files, cached predictions, and the ViViD-5K images are distributed separately from this source snapshot.
+## Installation
+
+Use Python 3.10 or later and install a CUDA-compatible build of PyTorch. The reference environment uses PyTorch 2.6 and an RTX 4060 Laptop GPU with 8 GB of video memory.
+
+```bash
+python -m pip install -r requirements.txt
+python -m grapepbc path/to/image.jpg
+```
+
+Full adaptive-resolution inference requires CUDA. Results are saved under `results`. Set `GRAPEPBC_CHECKPOINT_DIR`, `GRAPEPBC_CONFIG_DIR`, or `GRAPEPBC_RESULTS_DIR` to use different locations. Run the web service from the project root with `python -m server.app`. The service listens on port 7860. The Android source is in `mobile/android` and uses the pairing page provided by the service.
 
 ## Data
 
-ViViD-5K is available from its original authors at https://huggingface.co/datasets/XZhi/ViViD-5k . The dataset provides the official training, validation, and test splits. Dataset licensing and attribution follow the original dataset record. The original reference implementation is https://github.com/tong-xz/GrapeSAM .
+The official ViViD-5K images, berry points, bunch masks, and split files are available at https://huggingface.co/datasets/XZhi/ViViD-5k . Follow the dataset authors' licensing and citation requirements. The original GrapeSAM implementation is https://github.com/tong-xz/GrapeSAM .
 
-## Environment and execution
+## Evaluation
 
-Install the Python dependencies with `python -m pip install -r requirements.txt`. Full adaptive-resolution inference requires a CUDA-compatible PyTorch installation. The original experiments used an RTX 4060 Laptop GPU with 8 GB of video memory.
+`evaluation.py` matches predicted and annotated boxes one-to-one at IoU 0.5 and reports matched-bunch MAE and total error per annotated bunch. Predictions are a JSON mapping from image IDs to inference result objects. Annotations are a JSON mapping from the same image IDs to lists of bunches, each containing a `bbox` array in `[x0,y0,x1,y1]` format and a `points` array of berry centers.
 
-The Python files use the release layout rooted at `D:/GrapePBC_release`. Internal module filenames are preserved for dependency compatibility. Before running the scripts on a different computer, configure the paths to the dataset, model checkpoints, calibration records, and output directories. The checkpoint locations are specified in `server/engine.py` and `server/full_runtime.py`. Training scripts under `scripts` define the corresponding architectures. The source archive has been checked for Python syntax and local module dependencies. End-to-end inference from a clean checkout requires the trained checkpoints and experiment records referenced by these modules.
+```bash
+python evaluation.py predictions.json annotations.json
+```
 
-The final merge classifier is `configs/merge_model_cv.json` and uses a probability threshold of 0.50. Its features and coefficients were fitted on training images. The four count-bin fusion settings are stored in `configs/ccf_train_fit.json`. Use the official dataset split files during evaluation.
+Count-bin fusion uses the initial whole-image LR count. The gains are 0.500, 0.500, 0.625, and 0.375 for the four count bins, with thresholds of 5, 5, 15, and 0 berries. Instance merging uses the fitted classifier in `configs/instance_merging.json` at probability threshold 0.50.
 
-## Manuscript
+## Authors
 
-Lingfeng Hua, Yu Ding, Yi Xuan Gao, Chundi Yuan, and Zhaoyu Zhai. *GrapePBC: Adaptive-Resolution Counting of Grape Berries per Bunch in Field Images*.
+Lingfeng Hua, Yu Ding, Yi Xuan Gao, Chundi Yuan, and Zhaoyu Zhai.
 
 Correspondence: zhaoyu.zhai@njau.edu.cn.
